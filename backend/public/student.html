@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mess Manager - Simple Frontend</title>
+  <link rel="stylesheet" href="styleStudent.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- Sidebar (hidden when not logged in) -->
+    <aside id="sidebar" class="sidebar hidden">
+      <div class="sidebar-header">
+        <h2>Mess Manager</h2>
+        <p id="sidebar-username">Student</p>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" data-page="dashboard" class="nav-link">Dashboard</a>
+        <a href="#" data-page="meals" class="nav-link">Weekly Meals</a>
+        <a href="#" data-page="attendance" class="nav-link">Attendance</a>
+        <a href="#" data-page="points" class="nav-link">Points</a>
+      </nav>
+      <button id="logoutBtn" class="logout-btn">Logout</button>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main-content">
+      <!-- Login Page -->
+      <section id="page-login" class="page page-centered">
+        <div class="login-box card">
+          <h2>Student Login</h2>
+          <form id="loginForm">
+            <label for="name">Name</label>
+            <input id="name" name="name" required />
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required />
+            <button type="submit" class="btn">Sign in / Register</button>
+          </form>
+          <p id="loginMessage" class="muted"></p>
+        </div>
+      </section>
+
+      <!-- Dashboard -->
+      <section id="page-dashboard" class="page hidden">
+        <div class="card">
+          <h1 id="welcomeHeading">Welcome</h1>
+          <p>You have <strong id="pointsCount">0</strong> points</p>
+        </div>
+      </section>
+
+      <!-- Weekly Meals -->
+      <section id="page-meals" class="page hidden">
+        <div class="card">
+          <h2>Weekly Meals</h2>
+          <div id="mealsContainer">
+            <p class="muted">Loading menu...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Attendance (QR) -->
+      <section id="page-attendance" class="page hidden">
+        <div class="card">
+          <h2>Attendance QR</h2>
+          <div id="qrContainer">
+            <p class="muted">No active QR. Mark “YES” in Weekly Meals to generate one.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Points History -->
+      <section id="page-points" class="page hidden">
+        <div class="card">
+          <h2>Your Points</h2>
+          <p id="pointsLarge">0 pts</p>
+        </div>
+      </section>
+    </main>
+
+  </div>
+  <script src="scriptStudent.js"></script>
+</body>
+</html>

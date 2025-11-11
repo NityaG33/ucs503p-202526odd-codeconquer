@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mess Admin Panel</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      background: #f6f8fa;
+      color: #222;
+      margin: 0;
+      padding: 30px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2d3748;
+      margin-bottom: 25px;
+    }
+
+    section {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    h2 {
+      margin-bottom: 15px;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 5px;
+      color: #1a202c;
+    }
+
+    form {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    input, button {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    button {
+      background: #2b6cb0;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #225a9e;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #eee;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+    }
+
+    tr:hover { background: #f9fafb; }
+
+    .yes { color: #2f855a; font-weight: 500; }
+    .no { color: #c53030; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <h1>🍱 Mess Management - Admin</h1>
+
+  <!-- 🥣 Menu Section -->
+  <section>
+    <h2>Update Today's Menu</h2>
+    <form id="menuForm">
+      <input name="breakfast" placeholder="Breakfast items" required />
+      <input name="lunch" placeholder="Lunch items" required />
+      <input name="dinner" placeholder="Dinner items" required />
+      <button type="submit">Save Menu</button>
+    </form>
+  </section>
+
+  <!-- ⏰ Timing Section -->
+  <section>
+    <h2>Update Meal Timings</h2>
+    <form id="timingForm">
+      <input name="breakfastStart" type="time" required />
+      <input name="breakfastEnd" type="time" required />
+      <input name="lunchStart" type="time" required />
+      <input name="lunchEnd" type="time" required />
+      <input name="dinnerStart" type="time" required />
+      <input name="dinnerEnd" type="time" required />
+      <button type="submit">Save Timings</button>
+    </form>
+  </section>
+
+  <!-- 📊 Statistics Section -->
+  <section>
+    <h2>Meal Statistics</h2>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <input type="date" id="statsDate" />
+      <button onclick="fetchStats()">Get Stats</button>
+    </div>
+
+    <table id="statsTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>Meal Type</th>
+          <th>Items</th>
+          <th>YES</th>
+          <th>NO</th>
+          <th>Timing</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <p id="noData" style="margin-top:10px; color:#666;"></p>
+  </section>
+
+  <script>
+    // ✅ Save Menu
+    document.getElementById("menuForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      const res = await fetch("/api/admin/menu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      alert(result.message);
+      const today = new Date().toISOString().split("T")[0];
+      document.getElementById("statsDate").value = today;
+      fetchStats();
+    });
+
+    // ✅ Save Timings
+    document.getElementById("timingForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      const res = await fetch("/api/admin/timings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      const result = await res.json();
+      alert(result.message);
+    });
+
+    // ✅ Fetch Stats
+    async function fetchStats() {
+      const date = document.getElementById("statsDate").value;
+      if (!date) return alert("Please select a date!");
+
+      const res = await fetch(`/api/admin/meal-stats?date=${date}`);
+      const stats = await res.json();
+
+      const table = document.getElementById("statsTable");
+      const tbody = table.querySelector("tbody");
+      const noData = document.getElementById("noData");
+
+      tbody.innerHTML = "";
+      if (!stats || stats.length === 0) {
+        table.style.display = "none";
+        noData.innerText = "No statistics found for the selected date.";
+        return;
+      }
+
+      noData.innerText = "";
+      table.style.display = "table";
+
+      stats.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.mealType}</td>
+          <td>${Array.isArray(row.items) ? row.items.join(", ") : row.items}</td>
+          <td class="yes">${row.yesCount ?? "0"}</td>
+          <td class="no">${row.noCount ?? "0"}</td>
+          <td>${row.timing || "-"}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
