@@ -1,5 +1,5 @@
 
-const API = "http://localhost:4000";
+const API = "";
 
 function $(sel, parent = document) { return parent.querySelector(sel); }
 function $all(sel, parent = document) { return Array.from((parent || document).querySelectorAll(sel)); }
