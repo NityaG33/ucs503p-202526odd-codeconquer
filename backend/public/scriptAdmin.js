@@ -1,49 +1,72 @@
 // scriptAdmin.js
-async function fetchMenu() {
-  const response = await fetch("/admin/menus"); // <-- make sure endpoint matches your backend route
-  const menus = await response.json();
+async function fetchMenuAndStats() {
+  try {
+    // fetch menus (route defined in routes/admin.js and mounted at /api/admin)
+    const response = await fetch("/api/admin/menus");
+    if (!response.ok) throw new Error("Failed to fetch menus");
+    const menus = await response.json();
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // normalize today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // normalize
 
-  // find menu whose date (from DB) matches today's date (ignore time)
-  const todayMenu = menus.find((m) => {
-    const menuDate = new Date(m.date);
-    menuDate.setHours(0, 0, 0, 0);
-    return menuDate.getTime() === today.getTime();
-  });
+    const todayMenu = menus.find((m) => {
+      const menuDate = new Date(m.date);
+      menuDate.setHours(0, 0, 0, 0);
+      return menuDate.getTime() === today.getTime();
+    });
 
-  const menuContainer = document.getElementById("menu");
+    const menuContainer = document.getElementById("menu");
 
-  if (!todayMenu) {
-    menuContainer.innerHTML = `<p>No menu available for today.</p>`;
-    return;
+    if (!todayMenu) {
+      menuContainer.innerHTML = `<p>No menu available for today.</p>`;
+      return;
+    }
+
+    // fetch stats for the selected date (use yyyy-mm-dd)
+    const isoDate = today.toISOString().split("T")[0];
+    const statsRes = await fetch(`/api/admin/meal-stats?date=${encodeURIComponent(isoDate)}`);
+    if (!statsRes.ok) throw new Error("Failed to fetch stats");
+    const stats = await statsRes.json(); // array with breakfast/lunch/dinner entries
+
+    // convert stats array to object for easy lookup
+    const statsByMeal = {};
+    stats.forEach(s => statsByMeal[s.mealType] = s);
+
+    const dayName = new Date(todayMenu.date).toLocaleString("en-US", { weekday: "long" });
+
+    let html = `<h2>${dayName}'s Menu</h2>`;
+    html += `
+      <div class="meal">
+        <h3>Breakfast</h3>
+        <p>${todayMenu.breakfast}</p>
+        <p><strong>YES:</strong> ${statsByMeal.breakfast?.yesCount ?? 0} |
+           <strong>NO:</strong> ${statsByMeal.breakfast?.noCount ?? 0}</p>
+      </div>
+      <div class="meal">
+        <h3>Lunch</h3>
+        <p>${todayMenu.lunch}</p>
+        <p><strong>YES:</strong> ${statsByMeal.lunch?.yesCount ?? 0} |
+           <strong>NO:</strong> ${statsByMeal.lunch?.noCount ?? 0}</p>
+      </div>
+      <div class="meal">
+        <h3>Dinner</h3>
+        <p>${todayMenu.dinner}</p>
+        <p><strong>YES:</strong> ${statsByMeal.dinner?.yesCount ?? 0} |
+           <strong>NO:</strong> ${statsByMeal.dinner?.noCount ?? 0}</p>
+      </div>
+    `;
+
+    menuContainer.innerHTML = html;
+  } catch (err) {
+    console.error("Admin fetch error:", err);
+    document.getElementById("menu").innerHTML = `<p class="muted">Error loading menu or stats.</p>`;
   }
-
-  // Convert ISO date to readable day name
-  const dayName = new Date(todayMenu.date).toLocaleString("en-US", { weekday: "long" });
-
-  let html = `<h2>${dayName}'s Menu</h2>`;
-  html += `
-    <div class="meal">
-      <h3>Breakfast</h3>
-      <p>${todayMenu.breakfast}</p>
-    </div>
-    <div class="meal">
-      <h3>Lunch</h3>
-      <p>${todayMenu.lunch}</p>
-    </div>
-    <div class="meal">
-      <h3>Dinner</h3>
-      <p>${todayMenu.dinner}</p>
-    </div>
-  `;
-
-  menuContainer.innerHTML = html;
 }
 
-fetchMenu();
+fetchMenuAndStats();
 
+// optional: auto-refresh every 20s so admin sees changes without reload
+setInterval(fetchMenuAndStats, 20000);
 
 
 

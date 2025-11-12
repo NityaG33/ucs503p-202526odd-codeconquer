@@ -2,7 +2,7 @@
 
 import express from "express";
 import Menu from "../models/menu.js";
-import MealTiming from "../models/Attendance.js";
+import Attendance from "../models/Attendance.js";
 import User from "../models/User.js"; 
 
 const router = express.Router();
