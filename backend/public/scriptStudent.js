@@ -119,7 +119,134 @@ function renderDashboard() {
 function renderPoints() {
   fetchAndRenderPoints();
 }
+// Meal display timings
+const MEAL_TIMINGS = {
+  breakfast: "8:00–10:00 AM",
+  lunch: "1:00–3:00 PM",
+  dinner: "7:00–9:00 PM"
+};
 
+// Cutoff display (only for UI)
+const MEAL_CUTOFF = {
+  breakfast: "6:00 AM",
+  lunch: "11:00 AM",
+  dinner: "5:00 PM"
+};
+
+
+async function renderMeals() {
+  mealsContainer.innerHTML = `<p class="muted">Loading menu...</p>`;
+
+  const res = await fetch(`${API}/api/menu`);
+  const menu = await res.json();
+  console.log("Menu from API:", menu);
+
+  if (!menu.length) {
+    mealsContainer.innerHTML = `<p class="muted">No meals scheduled.</p>`;
+    return;
+  }
+
+  // Current IST time
+  const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const currentHour = nowIST.getHours();
+  console.log("🕒 Current IST hour:", currentHour);
+
+  // Find today's menu
+  const todayMenu = menu.find(m => {
+    const menuUTC = new Date(m.date);
+    const menuIST = new Date(menuUTC.getTime() + 5.5 * 60 * 60 * 1000);
+    return (
+      menuIST.getFullYear() === nowIST.getFullYear() &&
+      menuIST.getMonth() === nowIST.getMonth() &&
+      menuIST.getDate() === nowIST.getDate()
+    );
+  });
+
+  console.log("✅ Found todayMenu:", todayMenu);
+
+  mealsContainer.innerHTML = "";
+
+  if (!todayMenu) {
+    mealsContainer.innerHTML = `<p class="muted">No menu found for today.</p>`;
+    return;
+  }
+
+  // Decide active meal based on time
+  const activeMealType =
+    currentHour < 10 ? "breakfast" :
+    currentHour < 16 ? "lunch" :
+    currentHour <= 21 ? "dinner" : null;
+
+  // Show ALL 3 meals
+  ["breakfast", "lunch", "dinner"].forEach(mealType => {
+    const mealName = todayMenu[mealType] || "Not available";
+    const isActive = mealType === activeMealType;
+
+    const row = document.createElement("div");
+    row.className = "meal-row";
+    row.innerHTML = `
+      <span>
+        ${mealName} (${mealType.toUpperCase()})
+        <br>
+        <small class="muted">Meal time: ${MEAL_TIMINGS[mealType]}</small>
+        <br>
+        <small class="muted">Cut-off: ${MEAL_CUTOFF[mealType]}</small>
+      </span>
+      <div>
+        <button class="no-btn" ${isActive ? "" : "disabled"}>
+          ${isActive ? "Skip Meal (NO)" : "Inactive"}
+        </button>
+      </div>
+    `;
+
+    mealsContainer.appendChild(row);
+
+    const noBtn = row.querySelector(".no-btn");
+
+    // Only active meal gets working NO button
+    if (isActive) {
+      noBtn.addEventListener("click", async () => {
+        try {
+          const res = await fetch(`${API}/api/attendance`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: currentUser._id,
+              menu_id: todayMenu._id,
+              meal_type: mealType,
+              response: "NO"
+            })
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            alert(data.error || "Already marked NO");
+          } else {
+            noBtn.disabled = true;
+            noBtn.textContent = "Skipped";
+          }
+        } catch (err) {
+          console.error("Attendance error:", err);
+        }
+      });
+
+      // Cutoff disable
+      const cutoffHour = {
+        breakfast: 6,
+        lunch: 11,
+        dinner: 17,
+      }[mealType];
+
+      if (currentHour >= cutoffHour) {
+        noBtn.disabled = true;
+        noBtn.textContent = "Cutoff passed";
+        noBtn.classList.add("disabled-btn");
+      }
+    }
+  });
+}
+
+/*
 //// Meals (only NO button logic) ////
 async function renderMeals() {
   mealsContainer.innerHTML = `<p class="muted">Loading menu...</p>`;
@@ -141,8 +268,8 @@ console.log("🕒 Current IST hour:", currentHour);
 
   // Determine which meal to show
   let currentMealType = null;
-  if (currentHour >= 5 && currentHour < 9) currentMealType = "breakfast";
-  else if (currentHour >= 10 && currentHour < 15) currentMealType = "lunch";
+  if (currentHour >= 0 && currentHour < 10) currentMealType = "breakfast";
+  else if (currentHour >= 10 && currentHour < 16) currentMealType = "lunch";
   else if (currentHour >= 16 && currentHour <= 21) currentMealType = "dinner";
 
   // Find today's menu entry (compare dates in IST)
@@ -177,7 +304,13 @@ console.log("🕒 Current IST hour:", currentHour);
   row.className = "meal-row";
   row.setAttribute("data-menu-id", todayMenu._id);
   row.innerHTML = `
-    <span>${mealName} (${currentMealType.toUpperCase()})</span>
+    <span>
+      ${mealName} (${currentMealType.toUpperCase()})
+      <br>
+      <small class="muted">Meal time: ${MEAL_TIMINGS[currentMealType]}</small>
+      <br>
+      <small class="muted">Cut-off time: ${MEAL_CUTOFF[currentMealType]}</small>
+    </span>
     <div>
       <button class="no-btn">Skip Meal (NO)</button>
     </div>
@@ -215,7 +348,7 @@ console.log("🕒 Current IST hour:", currentHour);
   // --- Disable skip button after cutoff (IST-based) ---
   const cutoffTimes = {
     breakfast: 6,
-    lunch: 12,
+    lunch: 11,
     dinner: 17, // 5:00 PM cutoff
   };
 
@@ -226,7 +359,7 @@ console.log("🕒 Current IST hour:", currentHour);
     noBtn.classList.add("disabled-btn");
   }
 }
-
+*/
 
 
 //// Mark attendance (simplified for only NO button logic) ////
@@ -280,7 +413,6 @@ function renderAttendance() {
 
 }
 
-
 //// Init ////
 function initUI() {
   if (currentUser) {
@@ -288,22 +420,35 @@ function initUI() {
     sidebarUsername.textContent = currentUser.name || "Student";
     navigateTo("dashboard");
 
-    // ✅ Global auto-QR refresh every 30s
+    // ⭐ Auto-refresh QR + Points every 5 seconds
     setInterval(async () => {
       try {
         if (!currentUser || !currentUser._id) return;
+
         const res = await fetch(`${API}/api/activeQR/${currentUser._id}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.token && data.token !== localStorage.getItem("mm_activeQR")) {
-            localStorage.setItem("mm_activeQR", data.token);
-            renderAttendance(); // show QR automatically
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const storedToken = localStorage.getItem("mm_activeQR");
+
+        if (!data.token) {
+          // QR scanned → remove & refresh
+          if (storedToken) {
+            localStorage.removeItem("mm_activeQR");
+            renderAttendance();
+            fetchAndRenderPoints();  // ⭐ Update points immediately
           }
+        } 
+        else if (data.token !== storedToken) {
+          // New QR received
+          localStorage.setItem("mm_activeQR", data.token);
+          renderAttendance();
         }
+
       } catch (err) {
-        console.error("Global QR refresh error:", err);
+        console.error("QR refresh error:", err);
       }
-    }, 30000);
+    }, 5000);
 
   } else {
     sidebar.classList.add("hidden");
