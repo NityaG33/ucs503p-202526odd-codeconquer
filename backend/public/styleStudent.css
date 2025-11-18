@@ -54,7 +54,7 @@ html,body,#app { height: 100%; background: #f5f7fb; color: #222; }
 }
 
 /* Responsive */
-@media (max-width: 400px) {
+@media (max-width: 300px) {
   .sidebar { display:none; }
   #app { flex-direction:column; }
   .main-content { padding:20px; }
