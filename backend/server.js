@@ -113,9 +113,9 @@ app.post("/api/attendance", async (req, res) => {
 
     // cutoff definition (hours only)
     const cutoff = {
-      breakfast: { hour: 6, minute: 0 },
-      lunch: { hour: 11, minute: 0 },
-      dinner: { hour: 17, minute: 0 }
+      breakfast: { hour: 6, minute: 0 },//6
+      lunch: { hour: 11, minute: 0 },//11
+      dinner: { hour: 17, minute: 0 }//5
     };
 
     // block re-marking NO if already NO
@@ -148,6 +148,7 @@ app.post("/api/attendance", async (req, res) => {
           token: null
         });
       }
+        await User.findByIdAndUpdate(user_id, { $inc: { points:15}});
 
       return res.json({ success: true, message: "Marked as NO (No QR generated)" });
     }
@@ -171,9 +172,6 @@ app.post("/api/attendance", async (req, res) => {
         valid_until: new Date(validUntil)
       });
     }
-
-    // Give points only on YES (15 points)
-    await User.findByIdAndUpdate(user_id, { $inc: { points: 15 } });
 
     return res.json({ success: true, message: "Marked YES with QR token", token });
   } catch (err) {
@@ -200,6 +198,47 @@ app.get("/api/qr/:token", async (req, res) => {
     return res.status(500).json({ error: "QR generation failed" });
   }
 });
+// Scan QR code (admin/mess staff will use this)
+app.post("/api/scan", async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    const record = await Attendance.findOne({ token });
+
+    if (!record) return res.status(400).json({ error: "Invalid or used QR" });
+
+    // Current IST time
+    const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+
+    // Expiry check
+    if (record.valid_until < nowIST) {
+      return res.status(400).json({ error: "QR expired" });
+    }
+
+    // Prevent double scan
+    if (record.scanned) {
+      return res.status(400).json({ error: "QR already used" });
+    }
+
+    // 1️⃣ Mark QR used
+    record.scanned = true;
+
+    // 2️⃣ Remove token so QR disappears from student phone
+    record.token = null;
+
+    await record.save();
+
+    // 3️⃣ Give 15 points
+    await User.findByIdAndUpdate(record.user_id, { $inc: { points: 15 } });
+
+    return res.json({ success: true, message: "QR scanned. Points added & QR removed." });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 
 // Active QR for a user (frontend polls this)
 app.get("/api/activeQR/:userId", async (req, res) => {
@@ -249,17 +288,16 @@ async function autoMarkYes(mealType) {
       });
       if (existing) continue;
 
-      const token = `${user._id}_${todayMenu._id}_${mealType}_${Date.now()}`;
       await Attendance.create({
         user_id: user._id,
         menu_id: todayMenu._id,
         meal_type: mealType,
         response: "YES",
-        token,
-        valid_until: new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })).getTime() + 2 * 60 * 60 * 1000
+        token:null,
+        scanned:false,
+        valid_until:null
       });
 
-      await User.findByIdAndUpdate(user._id, { $inc: { points: 15 } });
     }
 
     console.log(`✅ Auto-marked YES for ${mealType}`);
@@ -302,9 +340,9 @@ async function generateMealQRCodes(mealType) {
 }
 
 // schedule QR generation at serving times (adjust times if needed)
-cron.schedule("0 8 * * *", () => generateMealQRCodes("breakfast"), { timezone: "Asia/Kolkata" });
-cron.schedule("0 13 * * *", () => generateMealQRCodes("lunch"), { timezone: "Asia/Kolkata" });
-cron.schedule("0 19 * * *", () => generateMealQRCodes("dinner"), { timezone: "Asia/Kolkata" });
+cron.schedule("0 8 * * *", () => generateMealQRCodes("breakfast"), { timezone: "Asia/Kolkata" });//8
+cron.schedule("0 13 * * *", () => generateMealQRCodes("lunch"), { timezone: "Asia/Kolkata" });//1
+cron.schedule("0 19 * * *", () => generateMealQRCodes("dinner"), { timezone: "Asia/Kolkata" });//7
 
 // ----------------------------
 // Frontend routes
